@@ -1,0 +1,54 @@
+# Every pull request, and weekly against spec-kit's main branch, which is where a change to spec-kit's
+# own spec template first appears.
+name: ci
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "17 6 * * 1"   # Mondays: has spec-kit changed what the preset replaces?
+  workflow_dispatch:
+
+jobs:
+  # The checker on the oldest Python it supports and the newest.
+  checker:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.13"]
+    name: checker (python ${{ matrix.python }})
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          python-version: ${{ matrix.python }}
+      - run: uv run --project checker --extra test pytest -q checker
+
+  # The preset's template is what preset/build.py makes from the pinned copy of spec-kit's, and
+  # still what it makes from spec-kit's main branch: a change upstream to a part the preset replaces
+  # fails here, naming the part, instead of shipping a stale template.
+  preset:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          python-version: "3.13"
+      - run: uv run --no-project python preset/build.py --check
+      - run: uv run --no-project python preset/build.py --latest --check
+
+  # The extension and the preset installed by the real `specify`, on the oldest spec-kit the manifests
+  # name, the latest release and the main branch.
+  integration:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        spec-kit: ["v0.14.0", "v1.0.13", "main"]
+    name: integration (spec-kit ${{ matrix.spec-kit }})
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.2.0
+      - run: uv tool install specify-cli --from "git+https://github.com/github/spec-kit.git@${{ matrix.spec-kit }}"
+      - run: scripts/integration.sh
