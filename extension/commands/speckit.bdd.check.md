@@ -19,7 +19,7 @@ Consider the user input before proceeding, if it is not empty.
 ## Run the checker
 
 Read `.specify/extensions/bdd/bdd-config.yml` (where it is missing: `glossary: GLOSSARY.md`,
-`features: features`, `specs: specs`, and as the `checker`
+`features: features`, `specs: specs`, no `specs-from`, and as the `checker`
 `uvx --from "git+https://github.com/thinkmorestupidless/speckit-bdd@v0.0.0#subdirectory=checker" speckit-bdd`),
 then from the project root:
 
@@ -27,9 +27,15 @@ then from the project root:
 <checker> check --root . --glossary <glossary> --features <features> --specs <specs> --format json
 ```
 
+When the config has `specs-from`, add `--specs-from <specs-from>`: the specs before it were written
+before the project had features, and the checker does not read them. Leave those specs as they are.
+
 It exits 0 with no findings and 1 with some; each finding has `file`, `line`, `check` and
-`message`. An exit of 2, or a command that cannot be run, is a problem with the setup: say so and
-stop, rather than reporting the project clean.
+`message`, and `specs` says how many specs were `checked` and how many older ones were `skipped`.
+With `specs-from` set and `checked` at 0 while the current spec exists, the setting names a spec
+later than the current one: say so and stop, rather than reporting the project clean. An exit of 2,
+or a command that cannot be run, is a problem with the setup: say so and stop, rather than reporting
+the project clean.
 
 ## Turn findings into questions
 
@@ -58,4 +64,5 @@ and which synonyms to refuse.
 ## Report
 
 The questions, most consequential first (contradictions, then undefined terms, then the rest), each
-with its file and line, followed by what was fixed without asking.
+with its file and line, followed by what was fixed without asking. Say how many specs were checked,
+and how many older ones were not read.

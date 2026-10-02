@@ -257,6 +257,93 @@ def test_the_presets_own_template_is_read_as_references_and_nothing_else():
 # ── the command ─────────────────────────────────────────────────────────────
 
 
+# ── a project that had specs before it had features ─────────────────────────
+
+OLDER = """# Feature Specification: an earlier change
+
+**Acceptance Scenarios**:
+
+1. **Given** a cart, **When** the customer pays, **Then** the order is paid.
+- the customer is told when the order ships
+"""
+
+
+def older(root: Path, *names: str) -> Path:
+    for name in names:
+        (root / "specs" / name).mkdir(parents=True)
+        (root / "specs" / name / "spec.md").write_text(OLDER)
+    return root
+
+
+def report(root: Path, capsys, *args: str) -> tuple[int, dict]:
+    code = cli.main(["check", "--root", str(root), "--format", "json", *args])
+    return code, json.loads(capsys.readouterr().out)
+
+
+def test_every_spec_is_read_unless_told_otherwise(tmp_path, capsys):
+    code, out = report(older(project(tmp_path), "000-before"), capsys)
+    assert code == 1
+    assert sorted(checks_of(out["findings"])) == ["duplicated-scenario", "untraced-requirement"]
+    assert {f["file"] for f in out["findings"]} == {"specs/000-before/spec.md"}
+    assert out["specs"] == {"checked": 2, "skipped": 0}
+
+
+def test_specs_before_the_first_one_named_are_not_read(tmp_path, capsys):
+    code, out = report(older(project(tmp_path), "000-before"), capsys, "--specs-from", "001")
+    assert (code, out["findings"]) == (0, [])
+    # ...and the one named is still held to the features: this is not the checks being off.
+    assert out["specs"] == {"checked": 1, "skipped": 1}
+
+
+def test_the_spec_named_and_every_later_one_are_read(tmp_path, capsys):
+    root = older(project(tmp_path), "000-before", "002-after")
+    code, out = report(root, capsys, "--specs-from", "001-checkout")
+    assert code == 1
+    assert {f["file"] for f in out["findings"]} == {"specs/002-after/spec.md"}
+    assert out["specs"] == {"checked": 2, "skipped": 1}
+
+
+@pytest.mark.parametrize(
+    ("first", "skipped"),
+    [
+        ("100", ["001-checkout", "099-a"]),  # numbers compare as numbers: 99 is before 100
+        ("1000", ["001-checkout", "099-a", "100-b"]),  # ...and 100 before 1000
+        ("999", ["001-checkout", "099-a", "100-b"]),  # the thousandth spec is after the 999th, not before
+        ("20260319-143022", ["001-checkout", "099-a", "100-b", "1000-c", "20260319-143021-d"]),  # timestamps
+        ("1", []),  # a number needs no padding: 1 is 001
+    ],
+)
+def test_specs_are_ordered_as_spec_kit_numbers_them(tmp_path, capsys, first, skipped):
+    names = ["099-a", "100-b", "1000-c", "20260319-143021-d", "20260319-143022-e"]
+    code, out = report(older(project(tmp_path), *names), capsys, "--specs-from", first)
+    read = {f["file"].split("/")[1] for f in out["findings"]}
+    assert read == set(names) - set(skipped)
+    assert out["specs"]["skipped"] == len(skipped)
+
+
+def test_a_first_spec_later_than_every_spec_reads_none_and_says_so(tmp_path, capsys):
+    root = older(project(tmp_path), "000-before")
+    code, out = report(root, capsys, "--specs-from", "190")
+    # Nothing is found because nothing was read, and the report is what tells the two apart.
+    assert (code, out["findings"]) == (0, [])
+    assert out["specs"] == {"checked": 0, "skipped": 2}
+    cli.main(["check", "--root", str(root), "--specs-from", "190"])
+    assert "0 specs; 2 specs before 190 not read" in capsys.readouterr().err
+
+
+def test_the_summary_counts_specs_and_names_older_ones_only_when_asked(tmp_path, capsys):
+    root = older(project(tmp_path), "000-before")
+    cli.main(["check", "--root", str(root)])
+    assert capsys.readouterr().err.strip() == "2 findings in 2 scenarios and 2 specs"
+    cli.main(["check", "--root", str(root), "--specs-from", "001"])
+    assert capsys.readouterr().err.strip() == "0 findings in 2 scenarios and 1 spec; 1 spec before 001 not read"
+
+
+def test_a_first_spec_that_names_nothing_is_a_usage_error(tmp_path, capsys):
+    assert cli.main(["check", "--root", str(project(tmp_path)), "--specs-from", " "]) == 2
+    assert "--specs-from" in capsys.readouterr().err
+
+
 def test_a_feature_that_does_not_parse_is_a_finding_with_its_line(tmp_path, capsys):
     broken = "Feature: broken\n  Scenario: one\n    Given a cart\n    Whatever this is\n"
     _, findings, _ = check(project(tmp_path, features={"broken.feature": broken}, spec=None), capsys)

@@ -103,7 +103,28 @@ def parse(path: Path, root: Path) -> Spec:
     return spec
 
 
-def load(directory: Path, root: Path) -> list[Spec]:
+def _order(name: str) -> list[int | str]:
+    """A spec directory's place among the others: digits compare as numbers, so 99 is before 100.
+
+    spec-kit names a spec's directory `NNN-name` or `YYYYMMDD-HHMMSS-name`; either way a later spec
+    sorts after an earlier one. The parts alternate text, number, text, so two keys always compare
+    like with like.
+    """
+    return [int(part) if part.isdigit() else part for part in re.split(r"(\d+)", name)]
+
+
+def load(directory: Path, root: Path, start: str | None = None) -> tuple[list[Spec], int]:
+    """The specs to check, and how many older ones were not read.
+
+    `start` is the first spec to read, by its directory's name or its leading number: a project
+    that adopted the features after it had specs names the first spec written since, and the specs
+    before it stay as they are. They record changes that were made, in the form they were made in.
+    """
     if not directory.exists():
-        return []
-    return [parse(p, root) for p in sorted(directory.glob("*/spec.md"))]
+        return [], 0
+    paths = sorted(directory.glob("*/spec.md"), key=lambda p: _order(p.parent.name))
+    if start is None:
+        return [parse(p, root) for p in paths], 0
+    first = _order(start)
+    read = [p for p in paths if _order(p.parent.name) >= first]
+    return [parse(p, root) for p in read], len(paths) - len(read)
