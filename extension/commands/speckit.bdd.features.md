@@ -19,7 +19,7 @@ Consider the user input before proceeding, if it is not empty.
 ## Setup
 
 1. Read `.specify/extensions/bdd/bdd-config.yml`. Where it is missing, use `glossary: GLOSSARY.md`,
-   `features: features`, `specs: specs`, and as the `checker`
+   `features: features`, `specs: specs`, no `specs-from`, and as the `checker`
    `uvx --from "git+https://github.com/thinkmorestupidless/speckit-bdd@v0.0.0#subdirectory=checker" speckit-bdd`.
 2. The spec is the one `/speckit-specify` just wrote. When that is unclear, take the most recently
    modified `specs/*/spec.md` and say which you took.
@@ -89,6 +89,9 @@ Run the checker from the project root, with the configured paths:
 ```bash
 <checker> check --root . --glossary <glossary> --features <features> --specs <specs>
 ```
+
+When the config has `specs-from`, add `--specs-from <specs-from>`: the specs before it were written
+before the project had features, and the checker does not read them. Leave those specs as they are.
 
 Fix what is yours to fix: a refused synonym is reworded; an undefined word becomes a proposed term
 or an everyday word; a reference that names no scenario is corrected. Leave a **contradiction** as

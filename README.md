@@ -103,6 +103,31 @@ step before them.
 uvx --from "git+https://github.com/thinkmorestupidless/speckit-bdd@vX.Y.Z#subdirectory=checker" speckit-bdd check --root .
 ```
 
+### A project that already has specs
+
+A project that had specs before it had features has acceptance scenarios written in those specs,
+and each one is a `duplicated-scenario`. Those specs record changes that were made, in the form they
+were made in, and rewriting them is not what adopting the features is for. Name the first spec
+written since, in `.specify/extensions/bdd/bdd-config.yml`:
+
+```yaml
+specs-from: "019"
+```
+
+The checker then reads that spec and every later one, and not the ones before it; the commands pass
+the setting as `--specs-from 019`. It takes a spec's directory name (`019-service-topology`) or its
+leading number, and orders specs as spec-kit numbers them, by sequence or by timestamp, so the
+thousandth spec comes after the 999th.
+
+A setting that names a spec later than every spec there is reads none, and finds nothing. So the
+report always says how many specs it read and how many it did not:
+
+```text
+0 findings in 12 scenarios and 1 spec; 18 specs before 019 not read
+```
+
+With `--format json` the same counts are under `specs`, as `checked` and `skipped`.
+
 ## Development
 
 ```bash

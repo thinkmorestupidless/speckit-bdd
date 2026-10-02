@@ -11,6 +11,11 @@ features: features
 # spec-kit's specs. Each spec's Acceptance Scenarios reference scenarios in the features above.
 specs: specs
 
+# The first spec to check, by its directory's name or its leading number. A project that had specs
+# before it had features names the first spec written since, and the checker does not read the ones
+# before it: they stay as they were written. Leave it out to check every spec.
+# specs-from: "019"
+
 # How to run the checker. The default runs the version released with this extension; a local
 # checkout is `uv run --project /path/to/speckit-bdd/checker speckit-bdd`.
 checker: 'uvx --from "git+https://github.com/thinkmorestupidless/speckit-bdd@v0.0.0#subdirectory=checker" speckit-bdd'
